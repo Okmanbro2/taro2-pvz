@@ -36,14 +36,15 @@ try {
 // stop the in-game UI from rendering garbage, not to stop someone from
 // pasting {"value": 999999999} into the import box. for attributes where an
 // unrealistic value would actually be a competitive/economy advantage, set a
-// real ceiling here based on what's actually achievable through normal play.
-// Anything not listed here just falls back to the schema's own max, which is
+// real ceiling here based on what's actually achievable through normal play
+
+// anything not listed here just falls back to the schema's own max, which is
 // effectively no cap - so add to this list whenever a new ownable/earnable
 // stat is added to the game and matters for fairness.
 const IMPORT_VALUE_CAPS = {
-	KAohfBnN6V: 49510, // Coins
-	fKYSjs9Zw4: 50, // Wins
-	NbZXJa87MY: 100, // Tacos
+	KAohfBnN6V: 49950, // Coins
+	fKYSjs9Zw4: 25, // Wins
+	NbZXJa87MY: 25, // Tacos
 	GSYwTBl68S: 2, // spawnAIMax - schema's own max is 100, but real intended gameplay ceiling is 2
 	// "*Owned?" / "*Won?" flags are just 0/1 toggles in the schema already
 	// (min:0, max:1), so they don't need an entry here - the schema clamp
@@ -129,22 +130,14 @@ function notifyBadgesUnlocked(uid, newlyAwarded) {
 	}
 }
 
-// Real-time badge checking, hooked from AttributeComponent.js whenever a
-// player's Coins/Wins attribute actually changes value. Uses the in-memory
-// badge cache seeded on join (see Player.js's loadPersistentData) instead of
-// reading Firestore here, so this stays cheap even during frequent gameplay
-// (many coin pickups per second, across many players) - by far the common
-// case (nothing newly earned) costs a few in-memory comparisons and nothing
-// else. A Firestore write only happens on the rare event a badge is newly
-// earned, and it's a small merge (badges + a gems increment) - not the full
-// attributes/variables/quests blob savePersistedEntityData writes.
+// real-time badge checking
 //
-// This runs ALONGSIDE the existing badge-check inside savePersistedEntityData
+// this runs ALONGSIDE the existing badge-check inside savePersistedEntityData
 // (still triggered every 2 minutes + on leave) rather than replacing it -
 // that slower path re-reads badges fresh from Firestore each time, so it's a
 // harmless safety net (catches anything this path might miss) rather than a
 // source of double-awarding; checkAndAwardBadges only ever grants a badge
-// once regardless of which path notices it first.
+// once regardless of which path notices it first
 function checkBadgesLive(player, changedAttrId) {
 	if (!player || !player._stats) return;
 	const userId = player._stats.userId || player._stats.guestUserId;
@@ -229,8 +222,8 @@ async function savePersistedEntityData(uid, { player, unit } = {}, isGuestUser =
 	await db.collection('players').doc(uid).set(data, { mergeFields });
 }
 
-// Thrown by claimUsername() when someone else already holds that username -
-// server.js catches this specifically to send back a 409 instead of a 500.
+// thrown by claimUsername() when someone else already holds that username -
+// server.js catches this specifically to send back a 409 instead of a 500
 class UsernameTakenError extends Error {
 	constructor(username) {
 		super(`Username "${username}" is already taken.`);
@@ -274,18 +267,18 @@ async function claimUsername(uid, username) {
 
 // looks up a player's uid from their claimed username (the `usernames`
 // collection - see claimUsername above). Used by the admin import helper,
-// where an admin targets a player by username rather than a raw Firebase uid.
+// where an admin targets a player by username rather than a raw Firebase uid
 async function getUidByUsername(username) {
 	const doc = await db.collection('usernames').doc(username.toLowerCase()).get();
 	return doc.exists ? doc.data().uid : null;
 }
 
-// Atomically charges `uid` for skin `skinId` and adds it to their owned
+// atomically charges `uid` for skin `skinId` and adds it to their owned
 // skins - wrapped in a transaction (same pattern as claimUsername above) so
 // two rapid purchase clicks (or two requests racing) can't both succeed off
-// a stale gem balance. Price and purchasability are never taken from the
+// a stale gem balance, price and purchasability are never taken from the
 // client - both come from skins.js, which is the only source of truth for
-// what a skin actually costs and whether it's currently buyable at all.
+// what a skin actually costs and whether it's currently buyable at all
 async function buySkin(uid, skinId) {
 	const skin = getSkinById(skinId);
 	if (!skin) {
@@ -314,11 +307,11 @@ async function buySkin(uid, skinId) {
 	});
 }
 
-// Sets (or clears, if skinId is null) which owned skin is equipped for a
+// sets (or clears, if skinId is null) which owned skin is equipped for a
 // given unit type. A skin can only ever be equipped for the one unit type
 // it belongs to - equippedSkins is a map from unitType -> skinId, so
 // equipping a new skin for a unit type simply overwrites whatever was
-// equipped there before, no separate "unequip" call needed for that case.
+// equipped there before, no separate "unequip" call needed for that case
 async function equipSkinForUnitType(uid, unitType, skinId) {
 	const playerRef = db.collection('players').doc(uid);
 
@@ -340,14 +333,23 @@ async function equipSkinForUnitType(uid, unitType, skinId) {
 			}
 		}
 
-		const equippedSkins = Object.assign({}, data.equippedSkins || {});
 		if (skinId === null) {
-			delete equippedSkins[unitType];
+			// firestore's { merge: true } does not remove a nested map key just
+			// because that key is absent from the object we send so We must send
+			// an explicit delete sentinel for the exact equippedSkins entry.
+			// FieldPath is used so unitType is treated as one literal map key
+			// even if its id ever contains characters meaningful to Firestore
+			// field-path parsing
+			tx.update(
+				playerRef,
+				new admin.firestore.FieldPath('equippedSkins', unitType),
+				admin.firestore.FieldValue.delete()
+			);
 		} else {
+			const equippedSkins = Object.assign({}, data.equippedSkins || {});
 			equippedSkins[unitType] = skinId;
+			tx.set(playerRef, { equippedSkins }, { merge: true });
 		}
-
-		tx.set(playerRef, { equippedSkins }, { merge: true });
 	});
 }
 
@@ -379,14 +381,14 @@ async function backupPlayerData(uid, reason) {
 // gets treated as trusted persisted data, so it can't just be passed
 // through. Two separate problems get fixed here, not one:
 //
-// 1. Obviously, someone could just hand-edit "value" to whatever they want.
-// 2. Less obviously: loadPersistentData() in TaroEntity.js applies whatever
+// 1. obviously, someone could just hand-edit "value" to whatever they want
+// 2. less obviously: loadPersistentData() in TaroEntity.js applies whatever
 //    "min"/"max" the saved data claims BEFORE clamping "value" to that same
 //    min/max - so a pasted {"min":0,"max":999999999,"value":999999999}
 //    would sail straight through that clamp too, since the clamp is being
-//    checked against attacker-supplied bounds. Rebuilding min/max here from
+//    checked against attacker-supplied bounds so rebuilding min/max here from
 //    the game's own trusted schema (instead of copying whatever the pasted
-//    JSON claims) closes that off regardless of what the export contains.
+//    JSON claims) closes that off regardless of what the export contains
 function transformModdPlayerExport(moddExport) {
 	if (!moddExport || typeof moddExport !== 'object' || !moddExport.player) {
 		throw new Error("That doesn't look like a modd.io/indie.fun save export - expected a top-level \"player\" key.");
@@ -496,15 +498,7 @@ async function wipePlayerData(uid) {
 	return { backupId };
 }
 
-// --- Leaderboard ---
-//
-// Backed by a single cached doc (meta/leaderboard) rather than querying
-// every player on every page load - a full top-N query across the whole
-// players collection is not something we want running on every trophy-icon
-// click. The cache is considered fresh for a week, matching "refreshes
-// every week" in the UI copy; getLeaderboard() recomputes it lazily the
-// first time it's asked for after going stale, rather than needing a cron
-// job or scheduled function.
+// lb
 const LEADERBOARD_ATTRIBUTE_IDS = {
 	wins: 'fKYSjs9Zw4', // Wins
 	coins: 'KAohfBnN6V', // Coins
@@ -512,14 +506,14 @@ const LEADERBOARD_ATTRIBUTE_IDS = {
 const LEADERBOARD_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // one week
 const LEADERBOARD_ENTRY_LIMIT = 50;
 
-// Usernames that should never show up on the public leaderboard - dev/test
+// usernames that should never show up on the public leaderboard - dev/test
 // accounts, admin accounts used for debugging, that kind of thing. Matched
 // case-insensitively so "TestAccount12345" and "testaccount12345" are both
 // caught by one entry. Add to this list as needed; it only affects the
 // leaderboard display, not the accounts themselves - they keep their real
 // Wins/Coins, they just don't get ranked publicly.
 const LEADERBOARD_EXCLUDED_USERNAMES = new Set(
-  ['testaccount12345', 'testaccount1', 'testaccount2', 'testaccount3', 'testaccount4', 'testaccount5'].map((name) => name.toLowerCase())
+  ['testaccount12345',' testaccount12378', 'testaccount1', 'testaccount2', 'testaccount3', 'testaccount4', 'testaccount5'].map((name) => name.toLowerCase())
 );
 
 // guards against a stampede of concurrent recomputes if several requests
@@ -541,10 +535,10 @@ async function computeLeaderboard() {
 			.get(),
 	]);
 
-	// Firestore's orderBy on a nested field automatically excludes any
+	// firestore's orderBy on a nested field automatically excludes any
 	// document that doesn't have that field at all, so accounts that have
 	// never earned a Win/Coin simply won't appear in that particular
-	// leaderboard - which is the behavior we want here anyway.
+	// leaderboard - which is the behavior we want here anyway
 	function toEntries(snapshot, attrId) {
 		return snapshot.docs
 			.map((doc) => {
