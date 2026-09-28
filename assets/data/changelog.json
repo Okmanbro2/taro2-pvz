@@ -3,7 +3,7 @@
 	"entries": [
 		{
 			"title": "Connection Lost Messages Updated",
-			"description": "Updated connection loss messages."
+			"description": "Updated connection loss messages to have more reason within them."
 		},
 		{
 			"title": "Chat Upgrades Galore",
