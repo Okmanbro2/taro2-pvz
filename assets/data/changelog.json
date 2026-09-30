@@ -1,17 +1,17 @@
 {
-	"version": "3.6.3",
+	"version": "3.7.0",
 	"entries": [
 		{
-			"title": "Connection Lost Messages Updated",
-			"description": "Updated connection loss messages to have more reason within them."
+			"title": "Halloween is here!",
+			"description": "Enjoy the season with a fresh new tilesheet and some skins! Lawn of Doom 2026 is coming very soon!"
 		},
 		{
-			"title": "Chat Upgrades Galore",
-			"description": "Upgraded the chat - increased character limits and added a proper filter."
+			"title": "Bug fixes",
+			"description": "Fixed some more bugs."
 		},
 		{
-			"title": "New Content Soon!",
-			"description": "Stay tuned for brand new content coming very, very soon!"
+			"title": "Join our Discord Server!",
+			"description": "Join our Discord Server for the full changelog!"
 		}
 	]
 }
