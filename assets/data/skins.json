@@ -119,7 +119,7 @@
 			"image": "assets/skins/AngelDevilSkin.png",
 			"price": 25,
 			"availability": "limited",
-			"availableFrom": "2026-10-01T00:00:00Z",
+			"availableFrom": "2026-09-30T19:00:00Z",
 			"availableUntil": "2026-11-01T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
@@ -236,7 +236,7 @@
 			"image": "assets/skins/ZombieBonesSkin.png",
 			"price": 40,
 			"availability": "limited",
-			"availableFrom": "2026-10-01T00:00:00Z",
+			"availableFrom": "2026-09-30T19:00:00Z",
 			"availableUntil": "2026-11-01T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
@@ -249,7 +249,7 @@
 			"image": "assets/skins/wUEgKccIih.png",
 			"price": 40,
 			"availability": "limited",
-			"availableFrom": "2026-10-01T00:00:00Z",
+			"availableFrom": "2026-09-30T19:00:00Z",
 			"availableUntil": "2026-11-01T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
@@ -262,7 +262,7 @@
 			"image": "assets/skins/MJSkin.png",
 			"price": 40,
 			"availability": "limited",
-			"availableFrom": "2026-10-01T00:00:00Z",
+			"availableFrom": "2026-09-30T19:00:00Z",
 			"availableUntil": "2026-11-01T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
