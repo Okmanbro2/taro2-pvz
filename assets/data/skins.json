@@ -244,9 +244,9 @@
 		{
 			"id": "pumpkin-squash-skin",
 			"name": "Gourd",
-			"unitType": "o2hvbfE07a",
+			"unitType": "wUEgKccIih",
 			"unitTypeName": "Squash - Well, a gourd is in the same type of family, no?",
-			"image": "assets/skins/wUEgKccIih.png",
+			"image": "assets/skins/SquashSkin.png",
 			"price": 40,
 			"availability": "limited",
 			"availableFrom": "2026-09-30T19:00:00Z",
