@@ -246,7 +246,7 @@
 			"name": "Gourd",
 			"unitType": "wUEgKccIih",
 			"unitTypeName": "Squash - Well, a gourd is in the same type of family, no?",
-			"image": "assets/skins/SquashSkin.png",
+			"image": "assets/skins/SquashSkinFix.png",
 			"price": 40,
 			"availability": "limited",
 			"availableFrom": "2026-09-30T19:00:00Z",
