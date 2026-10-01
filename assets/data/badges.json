@@ -94,7 +94,7 @@
 		{
 			"id": "h26-badge",
 			"name": "Spooked in '26",
-			"description": "Beat the Lawn of Doom 2026 Event!<br/><small>(Unobtainable)</small>",
+			"description": "Beat the Lawn of Doom 2026 Event!",
 			"icon": "/assets/images/LawnOfDoomBadge.png",
 			"reward": "250 Gems, Event Rewards"
 		}
