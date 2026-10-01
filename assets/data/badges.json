@@ -90,6 +90,13 @@
 			"description": "As a Zombie, successfully defeat a Plant Boss!",
 			"icon": "/assets/images/plantBossBadge.png",
 			"reward": "50 Gems"
+		},
+		{
+			"id": "h26-badge",
+			"name": "Spooked in '26",
+			"description": "Beat the Lawn of Doom 2026 Event!<br/><small>(Unobtainable)</small>",
+			"icon": "/assets/images/LawnOfDoomBadge.png",
+			"reward": "250 Gems, Event Rewards"
 		}
 	]
 }
