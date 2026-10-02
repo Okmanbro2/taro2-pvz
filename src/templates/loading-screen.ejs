@@ -50,7 +50,6 @@
 		width: 0%;
 		background: linear-gradient(180deg, #9dff5c 0%, #6fdc1a 60%, #5cb818 100%);
 		border-radius: 12px 0 0 12px;
-		transition: width 0.4s ease;
 	}
 
 	@media (max-width: 720px) {
@@ -82,14 +81,46 @@
 		var $percent = document.getElementById('pvz-loading-percent');
 		var $dots = document.getElementById('pvz-loading-dots');
 		var progress = 0;
+		var targetProgress = 0;
+		var progressFrame;
+		var lastFrameTime = 0;
 
-		function setProgress(pct) {
-			if (pct <= progress) {
-				return;
-			}
+		function renderProgress(pct) {
 			progress = pct;
 			$fill.style.width = pct + '%';
-			$percent.textContent = pct + '%';
+			$percent.textContent = Math.round(pct) + '%';
+		}
+
+		function animateProgress(timestamp) {
+			var difference = targetProgress - progress;
+			if (difference < 0.1) {
+				renderProgress(targetProgress);
+				progressFrame = undefined;
+				lastFrameTime = 0;
+				return;
+			}
+
+			var elapsed = lastFrameTime ? timestamp - lastFrameTime : 0;
+			lastFrameTime = timestamp;
+			renderProgress(progress + difference * (1 - Math.exp(-elapsed / 100)));
+			progressFrame = requestAnimationFrame(animateProgress);
+		}
+
+		function setProgress(pct, immediate) {
+			if (pct <= targetProgress) {
+				return;
+			}
+			targetProgress = pct;
+			if (immediate) {
+				if (progressFrame) {
+					cancelAnimationFrame(progressFrame);
+					progressFrame = undefined;
+				}
+				renderProgress(targetProgress);
+				lastFrameTime = 0;
+			} else if (!progressFrame) {
+				progressFrame = requestAnimationFrame(animateProgress);
+			}
 		}
 
 		// ". => .. => ... " looping every 0.5s, per the mockup
@@ -105,7 +136,7 @@
 		});
 
 		window.addEventListener('taroGameReadyToPlay', function () {
-			setProgress(100);
+			setProgress(100, true);
 			clearInterval(dotsTimer);
 			setTimeout(function () {
 				$screen.classList.add('pvz-loading-screen-hidden');
