@@ -36,9 +36,6 @@ class PhaserRenderer extends Phaser.Game {
 			fps: {
 				smoothStep: false,
 			},
-			// Keep the game loop running when the browser tab is hidden. This is
-			// important during initial loading, which may begin in a background tab.
-			disableVisibilityChange: true,
 			scene: [GameScene, UiScene, DevModeScene, MobileControlsScene],
 			loader: {
 				crossOrigin: 'anonymous',
@@ -62,6 +59,32 @@ class PhaserRenderer extends Phaser.Game {
 		} else {
 			this.events.once(Phaser.Core.Events.BOOT, this.setupInputListeners, this);
 		}
+	}
+
+	/**
+	 * Keep the Phaser game loop running when the browser hides or blurs the tab.
+	 *
+	 * Phaser 3.60 normally pauses its main loop from these handlers. That means
+	 * an initially background tab can stop progressing until it becomes visible.
+	 * We still emit the normal lifecycle events, but deliberately do not pause
+	 * or resume the game loop here. Browser-level background throttling can still
+	 * reduce the frequency of frames, but Phaser itself will not put the game
+	 * into a paused state.
+	 */
+	protected onHidden(): void {
+		this.events.emit(Phaser.Core.Events.PAUSE);
+	}
+
+	protected onVisible(): void {
+		this.events.emit(Phaser.Core.Events.RESUME);
+	}
+
+	protected onBlur(): void {
+		this.events.emit(Phaser.Core.Events.BLUR);
+	}
+
+	protected onFocus(): void {
+		this.events.emit(Phaser.Core.Events.FOCUS);
 	}
 
 	private setupInputListeners(): void {
