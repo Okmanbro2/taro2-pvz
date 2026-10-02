@@ -84,11 +84,6 @@
 		var progress = 0;
 
 		function setProgress(pct) {
-			// only ever moves forward - the three load stages below can fire
-			// in slightly different orders/timings depending on network
-			// conditions, this just stops the bar from ever visibly going
-			// backwards if a later stage's event somehow lands before an
-			// earlier one's.
 			if (pct <= progress) {
 				return;
 			}
@@ -105,18 +100,10 @@
 			dotIndex = (dotIndex + 1) % dotStates.length;
 		}, 500);
 
-		// taroMapLoaded / taroRendererLoaded are dispatched by client.js as
-		// two of the three things it waits on before showing the menu;
-		// taroGameReadyToPlay is dispatched right at that reveal point (see
-		// the change alongside play-game-button-wrapper's d-none-important
-		// removal) - together these are three real load milestones, not a
-		// fake/timed animation.
-		window.addEventListener('taroMapLoaded', function () {
-			setProgress(33);
+		window.addEventListener('taroLoadingProgress', function (event) {
+			setProgress(Math.min(99, event.detail));
 		});
-		window.addEventListener('taroRendererLoaded', function () {
-			setProgress(66);
-		});
+
 		window.addEventListener('taroGameReadyToPlay', function () {
 			setProgress(100);
 			clearInterval(dotsTimer);

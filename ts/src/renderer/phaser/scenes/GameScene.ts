@@ -191,6 +191,10 @@ class GameScene extends PhaserScene {
 	}
 
 	preload(): void {
+		this.load.on('progress', (progress: number) => {
+			window.dispatchEvent(new CustomEvent('taroLoadingProgress', { detail: Math.round(progress * 100) }));
+		});
+
 		const data = taro.game.data;
 
 		if (data.texturePack) {
