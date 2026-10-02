@@ -1,13 +1,13 @@
 {
-	"version": "3.7.0",
+	"version": "3.7.0+",
 	"entries": [
 		{
-			"title": "Halloween is here!",
-			"description": "Enjoy the season with a fresh new tilesheet and some skins! Lawn of Doom 2026 is coming very soon!"
+			"title": "3.7.0+? What's that?",
+			"description": "A '+' refers to an added content update to an existing update!"
 		},
 		{
-			"title": "Bug fixes",
-			"description": "Fixed some more bugs."
+			"title": "Brand new stuff!",
+			"description": "Added a brand new currency (Candies) - usage will be revealed soon! Zompkins now have a chance to appear in (nearly) all modes!"
 		},
 		{
 			"title": "Join our Discord Server!",
