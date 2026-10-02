@@ -73,46 +73,7 @@ async function savePlayerData(uid, data) {
 	await db.collection('players').doc(uid).set(data, { merge: true });
 }
 
-// saves persisted player/unit game-state (attributes, variables, quests - the
-// stuff ActionComponent's 'savePlayerData' script action builds via
-// entity.getPersistentData()) under players/{uid}.data.player / .data.unit,
-// without touching sibling top-level fields like username or coins.
-//
-// this does not use `savePlayerData(uid, { 'data.player': player })` above -
-// that looks like dot-path notation but isn't. Firestore only expands dots
-// into nested paths for explicit field paths (update(), or set(..., {
-// mergeFields })). When merge:true computes its own mask from a plain
-// object's keys, it takes each top-level key literally - db.collection(...)
-// .set({ 'data.player': x }, { merge: true }) creates one real field
-// literally named "data.player" (dot and all), not a nested `data.player`
-// path. Reads that expect persistedData.data.player (see Player.js's
-// loadPersistentData) then find persistedData.data is undefined and silently
-// skip loading - which is exactly why saved data never came back.
-//
-// passing real FieldPath objects as `mergeFields` is what actually replaces
-// the nested data.player / data.unit maps wholesale on each save, which is
-// what we want here since getPersistentData() already returns a complete,
-// self-contained snapshot each time - not a partial diff to deep-merge.
-//
-// Also the one spot badge-earning gets checked: every time a fresh player
-// attributes snapshot comes in from the game server, we diff it against
-// whatever badges are already recorded and award any newly-earned ones (see
-// badges.js). Coin rewards, where a badge has one, are applied directly onto
-// the attributes snapshot before it's saved, the same way Coins are stored
-// the rest of the time. Gem rewards go onto a separate top-level `gems`
-// field on the player doc instead (see checkAndAwardBadges's gemsEarned) -
-// Gems isn't an in-game attribute, so it doesn't belong inside data.player.
-//
-// notifyBadgesUnlocked pushes the live achievement-toast event (see
-// gameClasses/ClientNetworkEvents.js's 'achievementUnlocked' ui case and
-// templates/achievement-toast.ejs) to the player's connected client, the same
-// way sendChatMessageToPlayer / the shop / sound actions push to one client:
-// taro.network.send(eventName, data, clientId). This assumes `taro` is
-// reachable as a bare global from this module the same way it already is in
-// server.js (taro.playerDataStore = ...) - if that assumption is wrong in
-// this deployment, the try/catch below just means the toast silently doesn't
-// fire while badge saving/awarding itself is unaffected. Worth confirming
-// against a live badge unlock the first time.
+// yap
 function notifyBadgesUnlocked(uid, newlyAwarded) {
 	try {
 		if (typeof taro === 'undefined' || !taro.network || !taro.$$) return;
