@@ -36,6 +36,9 @@ class PhaserRenderer extends Phaser.Game {
 			fps: {
 				smoothStep: false,
 			},
+			// Keep the game loop running when the browser tab is hidden. This is
+			// important during initial loading, which may begin in a background tab.
+			disableVisibilityChange: true,
 			scene: [GameScene, UiScene, DevModeScene, MobileControlsScene],
 			loader: {
 				crossOrigin: 'anonymous',

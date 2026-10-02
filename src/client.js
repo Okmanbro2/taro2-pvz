@@ -107,6 +107,12 @@ const Client = TaroEventingClass.extend({
 		this.isActiveTab = true;
 		this.tabBecameActiveAt = Date.now();
 		this.sendNextPingAt = 0;
+		this.gameTabLockOwned = false;
+		this.gameTabLockRelease = null;
+		this.gameTabLockFallbackKey = null;
+		this.gameTabLockFallbackId = null;
+
+		window.addEventListener('beforeunload', () => this.releaseGameTabLock());
 
 		this.isZooming = false;
 
@@ -566,6 +572,98 @@ const Client = TaroEventingClass.extend({
 		});
 	},
 
+	/**
+	 * no dupes
+	 */
+	acquireGameTabLock: function () {
+		var self = this;
+
+		if (this.gameTabLockOwned) {
+			return Promise.resolve(true);
+		}
+
+		if (navigator.locks && typeof navigator.locks.request === 'function') {
+			return new Promise((resolve) => {
+				let settled = false;
+
+				navigator.locks
+					.request('pvzroam-game-client', { ifAvailable: true }, (lock) => {
+						if (!lock) {
+							settled = true;
+							resolve(false);
+							return;
+						}
+
+						self.gameTabLockOwned = true;
+						self.gameTabLockRelease = null;
+						settled = true;
+						resolve(true);
+
+						// keep the exclusive lock for the lifetime of this game tab
+						return new Promise((release) => {
+							self.gameTabLockRelease = release;
+						});
+					})
+					.catch((err) => {
+						if (!settled) {
+							console.warn('Could not acquire Web Lock for game tab:', err);
+							resolve(false);
+						}
+					});
+			});
+		}
+
+		// Fallback for browsers without Web Locks. The owner is intentionally not
+		// given a short expiry, because background tabs can have their timers
+		// throttled for minutes. beforeunload/pagehide normally release it.
+		try {
+			var tabId = sessionStorage.getItem('pvzroamGameTabId');
+			if (!tabId) {
+				tabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+				sessionStorage.setItem('pvzroamGameTabId', tabId);
+			}
+
+			var key = 'pvzroamActiveGameTab';
+			var existing = localStorage.getItem(key);
+			if (existing && existing !== tabId) {
+				return Promise.resolve(false);
+			}
+
+			localStorage.setItem(key, tabId);
+			if (localStorage.getItem(key) !== tabId) {
+				return Promise.resolve(false);
+			}
+
+			this.gameTabLockOwned = true;
+			this.gameTabLockFallbackKey = key;
+			this.gameTabLockFallbackId = tabId;
+			return Promise.resolve(true);
+		} catch (err) {
+			console.warn('Could not acquire fallback game-tab lock:', err);
+			return Promise.resolve(false);
+		}
+	},
+
+	releaseGameTabLock: function () {
+		if (!this.gameTabLockOwned) return;
+
+		if (this.gameTabLockRelease) {
+			var release = this.gameTabLockRelease;
+			this.gameTabLockRelease = null;
+			release();
+		} else if (this.gameTabLockFallbackKey && this.gameTabLockFallbackId) {
+			try {
+				if (localStorage.getItem(this.gameTabLockFallbackKey) === this.gameTabLockFallbackId) {
+					localStorage.removeItem(this.gameTabLockFallbackKey);
+				}
+			} catch (err) {
+				// Nothing useful can be done if storage is unavailable during unload.
+			}
+		}
+
+		this.gameTabLockOwned = false;
+	},
+
 	startTaroEngine: function () {
 		let taroEngineStartTime = performance.now();
 		taro.start((success) => {
@@ -663,12 +761,19 @@ const Client = TaroEventingClass.extend({
 	connectToServer: async function () {
 		var self = this;
 
-		// Wait until Firebase has told us whether anyone's signed in (this resolves
-		// almost instantly in practice, since connectToServer only runs after the
-		// user clicks Play, long after page load), then use a real ID token if
-		// we've got one. window.gsAuthToken is what net.io-client actually sends
-		// on the socket connection URL - overwriting it here is the hookup point.
-		// Empty string (not the old random fake value) explicitly means "guest".
+		const gameTabLockAcquired = await this.acquireGameTabLock();
+		if (!gameTabLockAcquired) {
+			console.warn('Game connection blocked: another browser tab already owns the game client lock.');
+			window.alert('This game is already open in another tab. Please use the existing game tab.');
+			$('#play-game-button').attr('disabled', false);
+			$('#play-game-button-wrapper').removeClass('d-none-important');
+			if (typeof window.showAuthWidget === 'function') {
+				window.showAuthWidget();
+			}
+			return;
+		}
+
+		// a thingy thing
 		await window.firebaseAuthReady;
 		window.gsAuthToken = (await window.getFirebaseIdToken()) || '';
 		console.log('connectToServer: gsAuthToken is', window.gsAuthToken ? 'a real Firebase token' : 'empty (guest)');
