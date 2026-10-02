@@ -9,7 +9,7 @@
   // path, 404, server MIME issue, etc) is visible in the console instead of
   // silently vanishing.
   window.customFontsReady = Promise.allSettled([
-    { name: 'Burbank Big Condensed', url: '/assets/fonts/Burbank_Big_Condensed_Bold.otf' },
+    { name: 'Burbank Big Condensed', url: '/assets/fonts/BurbankBigCondensedBold.otf' },
     { name: 'Brianne\'s Hand', url: '/assets/fonts/BriannesHand.ttf' },
   ].map(function ({ name, url }) {
     return new FontFace(name, `url(${url})`)
