@@ -764,7 +764,7 @@ const Client = TaroEventingClass.extend({
 		const gameTabLockAcquired = await this.acquireGameTabLock();
 		if (!gameTabLockAcquired) {
 			console.warn('Game connection blocked: another browser tab already owns the game client lock.');
-			window.alert('This game is already open in another tab. Please use the existing game tab.');
+			window.alert('Hey! You got a tab already open, use that one!');
 			$('#play-game-button').attr('disabled', false);
 			$('#play-game-button-wrapper').removeClass('d-none-important');
 			if (typeof window.showAuthWidget === 'function') {
