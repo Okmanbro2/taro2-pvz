@@ -364,8 +364,6 @@ class GameScene extends PhaserScene {
 	create(): void {
 		this.events.once('render', () => {
 			this.scene.launch('DevMode');
-			taro.client.setLoadingTime('rendererLoaded', performance.now() - taro.client.tempLoadingTime.rendererStartTime);
-			taro.client.rendererLoaded.resolve();
 			document.dispatchEvent(new Event('taro rendered'));
 		});
 
@@ -428,6 +426,16 @@ class GameScene extends PhaserScene {
 
 		//get filter from game data
 		this.changeTextureFilter(taro.game.data.defaultData.renderingFilter);
+
+		// Mark the renderer ready after GameScene initialization completes.
+		// Do not wait for Phaser's first render event: browsers may throttle
+		// background-tab rendering, which can otherwise leave the loading screen
+		// stuck at 33% until the tab becomes visible.
+		taro.client.setLoadingTime(
+			'rendererLoaded',
+			performance.now() - taro.client.tempLoadingTime.rendererStartTime
+		);
+		taro.client.rendererLoaded.resolve();
 	}
 
 	private changeTextureFilter(filter: renderingFilter) {
