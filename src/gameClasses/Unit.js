@@ -64,7 +64,7 @@ var Unit = TaroEntityPhysics.extend({
 		if (taro.isClient) {
 			this.addToRenderer(defaultAnimation && defaultAnimation.frames[0] - 1);
 			taro.client.emit('create-unit', this);
-			this.transformTexture(this._translate.x, this._translate.y, 0);
+			this.transformTexture(this._translate.x, this._translate.y, this._rotate.z);
 
 			if (this._stats.states) {
 				var currentState = this._stats.states[this._stats.stateId];
