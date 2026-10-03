@@ -505,17 +505,31 @@ var PlayerUiComponent = TaroEntity.extend({
 		dialogue.message = dialogue.message || '';
 		if (dialogue) {
 			dialogue = getDialogueInstance(dialogue);
-			initModal();
-			showNextMessage();
+			const openDialogueNow = () => {
+				initModal();
+				showNextMessage();
 
-			if (window.GAME_PLAY_STARTED) {
-				if (window.STATIC_EXPORT_ENABLED) {
-					window.PokiSDK?.gameplayStop();
+				if (window.GAME_PLAY_STARTED) {
+					if (window.STATIC_EXPORT_ENABLED) {
+						window.PokiSDK?.gameplayStop();
+					}
+					if (window.IS_CRAZY_GAMES_ENV) {
+						window.CrazyGames.SDK.game.gameplayStop();
+					}
+					window.GAME_PLAY_STARTED = false;
 				}
-				if (window.IS_CRAZY_GAMES_ENV) {
-					window.CrazyGames.SDK.game.gameplayStop();
-				}
-				window.GAME_PLAY_STARTED = false;
+			};
+
+			// Bootstrap modals do not support reliably stacking a dialogue over another
+			// modal. Close any existing modal first, then create the dialogue after its
+			// backdrop/focus trap has been released. This prevents the softlock where
+			// the old modal remains the active focus trap underneath the dialogue.
+			const otherModals = $('.modal.show').filter(function () { return this.id !== 'modd-dialogue-modal'; });
+			if (otherModals.length) {
+				otherModals.modal('hide');
+				setTimeout(openDialogueNow, 250);
+			} else {
+				openDialogueNow();
 			}
 		} else {
 			console.error('dialogue', dialogueId, 'not found');
