@@ -718,6 +718,19 @@ var ShopComponent = TaroEntity.extend({
 		if (tabSelected) {
 			self.shopType = tabSelected;
 		}
+
+		// Shop descriptions are creator-authored HTML. Sanitize executable content
+		// while preserving normal markup such as <br>, <b>, <i>, and <span>.
+		if (self.shopType !== 'unitSkins' && self.shopType !== 'itemSkins') {
+			const shopDescription = taro.game.data.shops?.[self.currentType]?.description || '';
+			let descriptionEl = $('#modd-shop-modal .shop-description');
+			if (!descriptionEl.length) {
+				descriptionEl = $('<div/>', { class: 'shop-description px-3 pt-2 pb-1 text-white' });
+				descriptionEl.prependTo('#modd-shop-modal .modal-body');
+			}
+			descriptionEl.html(window.DOMPurify ? window.DOMPurify.sanitize(shopDescription, { USE_PROFILES: { html: true } }) : shopDescription);
+			descriptionEl.toggle(!!shopDescription);
+		}
 		if (self.shopType == 'unitSkins') {
 			$('.shop-navbar .nav-link').each(function () {
 				$(this).removeClass('active');
