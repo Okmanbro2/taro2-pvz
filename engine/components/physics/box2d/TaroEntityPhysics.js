@@ -45,7 +45,7 @@ var TaroEntityPhysics = TaroEntity.extend({
 		this.posHistory = [];
 	},
 
-	updateBody: function (defaultData, isLossTolerant) {
+	updateBody: function (defaultData, isLossTolerant, useScaledDimensions) {
 		var self = this;
 
 		bodyDef = this._stats.currentBody;
@@ -67,8 +67,13 @@ var TaroEntityPhysics = TaroEntity.extend({
 		// Use the entity body's dimensions for the collision fixture.
 		// The body's width/height are the authoritative collision bounds.
 		if (bodyDef?.fixtures) {
-		    var sizeX = bodyDef?.width;
-		    var sizeY = bodyDef?.height;
+		    // createEntity...WithDimensions calls updateBody(..., ..., true) from
+		    // scaleDimensions(). Honour that flag so the physics fixture uses the
+		    // requested per-instance dimensions instead of the asset's base body size.
+		    var requestedWidth = Number(this._stats?.width);
+		    var requestedHeight = Number(this._stats?.height);
+		    var sizeX = useScaledDimensions && Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : bodyDef?.width;
+		    var sizeY = useScaledDimensions && Number.isFinite(requestedHeight) && requestedHeight > 0 ? requestedHeight : bodyDef?.height;
 		    var offsetX = bodyDef?.fixtures[0].offset?.x;
 		    var offsetY = bodyDef?.fixtures[0].offset?.y;
 		
@@ -82,6 +87,11 @@ var TaroEntityPhysics = TaroEntity.extend({
 		
 		    if (sizeY) {
 		        shapeData.halfHeight = sizeY / 2;
+		    }
+		    if (useScaledDimensions && bodyDef?.fixtures?.[0]?.shape?.type === 'circle' && sizeX && sizeY) {
+		        // Box2D circles use radius rather than rectangle half extents.
+		        // A circle cannot represent different width/height, so use the larger requested axis.
+		        shapeData.radius = Math.max(sizeX, sizeY) / 2;
 		    }
 			if (offsetX) {
 				shapeData.x = offsetX;
