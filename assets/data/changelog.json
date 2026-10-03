@@ -1,13 +1,25 @@
 {
-	"version": "3.7.0+",
+	"version": "3.7.1",
 	"entries": [
 		{
-			"title": "3.7.0+? What's that?",
-			"description": "A '+' refers to an added content update to an existing update!"
+			"title": "Sweets, Heals, and Buffs",
+			"description": "Fixed an issue where Candies randomly vanished, along with fixes to healing domes and ability buffs."
 		},
 		{
-			"title": "Brand new stuff!",
-			"description": "Added a brand new currency (Candies) - usage will be revealed soon! Zompkins now have a chance to appear in (nearly) all modes!"
+			"title": "Imitater Upgrade (soon)",
+			"description": "Brand new Imitater upgrade is coming soon!"
+		},
+		{
+			"title": "Super Final Mega Fix for AoE Effects",
+			"description": "Looks like I had to delve into TaroEntityPhysics.js to fix this - AoE effects like ones that Gloom Shroom uses are now fixed."
+		},
+		{
+			"title": "Along with that...",
+			"description": "Gloom Shroom was nerfed to only use his AoE effect. Sorry, Gloom Shroom lovers."
+		},
+		{
+			"title": "Crazy Sun? From CRAZY Mode?",
+			"description": "Added a brand new Crazy Sun modifier to the Modifier shop."
 		},
 		{
 			"title": "Join our Discord Server!",
