@@ -14,6 +14,9 @@ class TileEditor {
 
 	tileSize: number;
 	prevData: { edit: MapEditTool['edit'] } | undefined;
+	private pendingEditQueue: Array<{ tileX: number; tileY: number; sample: Record<number, Record<number, number>>; size: Vector2D; layer: number; x: number; y: number }> = [];
+	private pendingEditFrame = false;
+	private pendingWallPhysics = false;
 
 	constructor(
 		private gameScene: GameScene,
@@ -218,6 +221,97 @@ class TileEditor {
 		});
 	}
 
+	private queueEdit(dataValue: TileData<'edit'>['edit']): void {
+		dataValue.selectedTiles.forEach((selectedTiles, idx) => {
+			const layer = dataValue.layer[idx];
+			const layerData = taro.game.data.map.layers[layer];
+			if (!layerData || layerData.type !== 'tilelayer' || !layerData.data) return;
+
+			const calcData = this.brushArea.calcSample(selectedTiles, dataValue.size, dataValue.shape, true);
+			const size = dataValue.size === 'fitContent' ? { x: calcData.xLength, y: calcData.yLength } : dataValue.size;
+			const tileX = dataValue.size === 'fitContent' ? calcData.minX : dataValue.x;
+			const tileY = dataValue.size === 'fitContent' ? calcData.minY : dataValue.y;
+
+			this.pendingEditQueue.push({
+				tileX,
+				tileY,
+				sample: calcData.sample,
+				size,
+				layer,
+				x: 0,
+				y: 0,
+			});
+		});
+		this.scheduleEditFrame();
+	}
+
+	private scheduleEditFrame(): void {
+		if (this.pendingEditFrame) return;
+		this.pendingEditFrame = true;
+		requestAnimationFrame(() => {
+			this.pendingEditFrame = false;
+			this.processEditQueue();
+		});
+	}
+
+	private processEditQueue(): void {
+		const start = performance.now();
+		const frameBudget = 4;
+		const maxTilesPerFrame = 500;
+		let processed = 0;
+		const map = this.gameScene.tilemap as Phaser.Tilemaps.Tilemap;
+		const taroMap = taro.game.data.map;
+		const width = taroMap.width;
+
+		while (this.pendingEditQueue.length && processed < maxTilesPerFrame && performance.now() - start < frameBudget) {
+			const job = this.pendingEditQueue[0];
+			const layerData = taroMap.layers[job.layer];
+			if (!layerData || layerData.type !== 'tilelayer' || !layerData.data) {
+				this.pendingEditQueue.shift();
+				continue;
+			}
+
+			let jobFinished = true;
+			for (; job.x < job.size.x; job.x++) {
+				for (; job.y < job.size.y; job.y++) {
+					const sampleColumn = job.sample[job.x];
+					if (sampleColumn && sampleColumn[job.y] !== undefined && DevModeScene.pointerInsideMap(job.tileX + job.x, job.tileY + job.y, map)) {
+						let index = sampleColumn[job.y];
+						if (index === -1) index = 0;
+						const mapIndex = (job.tileY + job.y) * width + job.tileX + job.x;
+						if (layerData.data[mapIndex] !== index) {
+							let phaserIndex = index === 0 ? -1 : index;
+							if (this.gameScene.tilemapLayers[job.layer]?.visible !== false) {
+								map.putTileAt(phaserIndex, job.tileX + job.x, job.tileY + job.y, false, job.layer);
+								const tile = map.getTileAt(job.tileX + job.x, job.tileY + job.y, true, job.layer);
+								if (tile) tile.tint = 0xffffff;
+							}
+							layerData.data[mapIndex] = index;
+						}
+						processed++;
+						if (processed >= maxTilesPerFrame || performance.now() - start >= frameBudget) {
+							jobFinished = false;
+							break;
+						}
+					}
+				}
+				if (!jobFinished) break;
+				job.y = 0;
+			}
+
+			if (jobFinished) {
+				this.pendingEditQueue.shift();
+			}
+		}
+
+		if (this.pendingEditQueue.length) {
+			this.scheduleEditFrame();
+		} else if (this.pendingWallPhysics) {
+			this.pendingWallPhysics = false;
+			if (taro.physics) debounceRecalcPhysics(taroMap, true);
+		}
+	}
+
 	edit<T extends MapEditToolEnum>(data: TileData<T>): void {
 		if (JSON.stringify(data) === '{}') {
 			throw 'receive: {}';
@@ -236,45 +330,29 @@ class TileEditor {
 			case 'fill': {
 				const nowValue = dataValue as TileData<'fill'>['fill'];
 				const oldTile = map.layers[tempLayer].data[nowValue.y * width + nowValue.x];
-				if (
-					taro.game.data.map.layers[nowValue.layer].type === 'tilelayer' &&
-					taro.game.data.map.layers[nowValue.layer].data
-				) {
+				if (map.layers[nowValue.layer].type === 'tilelayer' && map.layers[nowValue.layer].data) {
 					this.floodFill(nowValue.layer, oldTile, nowValue.gid, nowValue.x, nowValue.y, true, nowValue.limits);
 				}
 				break;
 			}
 			case 'edit': {
-				//save tile change to taro.game.data.map and taro.map.data
-				const nowValue = dataValue as TileData<'edit'>['edit'];
-				nowValue.selectedTiles.forEach((v, idx) => {
-					if (
-						taro.game.data.map.layers[nowValue.layer[idx]].type === 'tilelayer' &&
-						taro.game.data.map.layers[nowValue.layer[idx]].data
-					) {
-						this.putTiles(nowValue.x, nowValue.y, v, nowValue.size, nowValue.shape, nowValue.layer[idx], true);
-					}
-				});
-
-				break;
+				this.queueEdit(dataValue as TileData<'edit'>['edit']);
+				if (taro.physics && map.layers[tempLayer]?.name === 'walls') {
+					this.pendingWallPhysics = true;
+				}
+				return;
 			}
 			case 'clear': {
 				const nowValue = dataValue as TileData<'clear'>['clear'];
-				if (
-					taro.game.data.map.layers[nowValue.layer].type === 'tilelayer' &&
-					taro.game.data.map.layers[nowValue.layer].data
-				) {
+				if (map.layers[nowValue.layer].type === 'tilelayer' && map.layers[nowValue.layer].data) {
 					this.clearLayer(nowValue.layer);
 				}
+				break;
 			}
 		}
-		if (taro.physics && map.layers[tempLayer].name === 'walls') {
-			//if changes was in 'walls' layer we destroy all old walls and create new staticsFromMap
-			if (dataValue.noMerge) {
-				recalcWallsPhysics(map, true);
-			} else {
-				debounceRecalcPhysics(map, true);
-			}
+		if (taro.physics && map.layers[tempLayer]?.name === 'walls') {
+			if (dataValue.noMerge) recalcWallsPhysics(map, true);
+			else debounceRecalcPhysics(map, true);
 		}
 	}
 
