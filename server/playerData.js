@@ -6,13 +6,80 @@ const { db } = admin;
 const fs = require('fs');
 const path = require('path');
 const { checkAndAwardBadges, getBadgeDisplayInfo } = require('./badges');
-const { getSkinById, isPurchasable, getEffectivePrice } = require('./skins');
 
 // same Coins attribute id used throughout this file (see IMPORT_VALUE_CAPS
 // below) - pulled out as its own constant here since savePersistedEntityData
 // needs it directly to apply badge coin rewards onto a fresh attributes
 // snapshot before it's saved.
 const COINS_ATTR_ID = 'KAohfBnN6V';
+const GEMS_FIELD = 'gems';
+
+const DISCORD_IMPORT_WEBHOOK_URL = process.env.DISCORD_IMPORT_WEBHOOK_URL || '';
+
+async function notifyDiscordImport({ uid, username, previousValues, newValues, force }) {
+    if (!DISCORD_IMPORT_WEBHOOK_URL) return;
+
+    const now = new Date();
+    const date = `${now.getMonth() + 1}/${now.getDate()}`;
+    const time = now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+
+    const changes = [];
+    const allIds = new Set([
+        ...Object.keys(previousValues || {}),
+        ...Object.keys(newValues || {}),
+    ]);
+
+    for (const attrId of allIds) {
+        const previous = previousValues && previousValues[attrId];
+        const next = newValues && newValues[attrId];
+        if (previous === undefined && next === undefined) continue;
+        if (previous === next) continue;
+
+        const label =
+            (next && next.name) ||
+            (previous && previous.name) ||
+            attrId;
+
+        const oldValue = previous && previous.value !== undefined ? previous.value : 0;
+        const newValue = next && next.value !== undefined ? next.value : 0;
+
+        changes.push(`${label}: ${oldValue} => ${newValue}`);
+    }
+
+    const header = `Data import: ${date}, ${time}, ${username || uid}`;
+    const changeLines = changes.length > 0
+        ? changes.slice(0, 50)
+        : ['No attribute value changes.'];
+
+    let content = `${header}\n${changeLines.join('\n')}`;
+    if (content.length > 1900) {
+        content = `${content.slice(0, 1890)}\n...`;
+    }
+
+    try {
+        const response = await fetch(DISCORD_IMPORT_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content,
+                allowed_mentions: { parse: [] },
+            }),
+        });
+
+        if (!response.ok) {
+            console.error(`Discord import webhook returned HTTP ${response.status}`);
+        }
+    } catch (err) {
+        console.error('Discord import webhook failed:', err.message);
+    }
+}
+
 
 // stuuuff
 //
@@ -36,15 +103,14 @@ try {
 // stop the in-game UI from rendering garbage, not to stop someone from
 // pasting {"value": 999999999} into the import box. for attributes where an
 // unrealistic value would actually be a competitive/economy advantage, set a
-// real ceiling here based on what's actually achievable through normal play
-
+// real ceiling here based on what's actually achievable through normal play.
 // anything not listed here just falls back to the schema's own max, which is
 // effectively no cap - so add to this list whenever a new ownable/earnable
-// stat is added to the game and matters for fairness.
+// stat is added to the game and matters for fairness
 const IMPORT_VALUE_CAPS = {
-	KAohfBnN6V: 49950, // Coins
-	fKYSjs9Zw4: 25, // Wins
-	NbZXJa87MY: 25, // Tacos
+	KAohfBnN6V: 49510, // Coins
+	fKYSjs9Zw4: 50, // Wins
+	NbZXJa87MY: 100, // Tacos
 	GSYwTBl68S: 2, // spawnAIMax - schema's own max is 100, but real intended gameplay ceiling is 2
 	// "*Owned?" / "*Won?" flags are just 0/1 toggles in the schema already
 	// (min:0, max:1), so they don't need an entry here - the schema clamp
@@ -73,7 +139,6 @@ async function savePlayerData(uid, data) {
 	await db.collection('players').doc(uid).set(data, { merge: true });
 }
 
-// yap
 function notifyBadgesUnlocked(uid, newlyAwarded) {
 	try {
 		if (typeof taro === 'undefined' || !taro.network || !taro.$$) return;
@@ -91,14 +156,7 @@ function notifyBadgesUnlocked(uid, newlyAwarded) {
 	}
 }
 
-// real-time badge checking
-//
-// this runs ALONGSIDE the existing badge-check inside savePersistedEntityData
-// (still triggered every 2 minutes + on leave) rather than replacing it -
-// that slower path re-reads badges fresh from Firestore each time, so it's a
-// harmless safety net (catches anything this path might miss) rather than a
-// source of double-awarding; checkAndAwardBadges only ever grants a badge
-// once regardless of which path notices it first
+// badge checking
 function checkBadgesLive(player, changedAttrId) {
 	if (!player || !player._stats) return;
 	const userId = player._stats.userId || player._stats.guestUserId;
@@ -183,8 +241,113 @@ async function savePersistedEntityData(uid, { player, unit } = {}, isGuestUser =
 	await db.collection('players').doc(uid).set(data, { mergeFields });
 }
 
-// thrown by claimUsername() when someone else already holds that username -
-// server.js catches this specifically to send back a 409 instead of a 500
+
+async function getSkinState(uid) {
+	const doc = await db.collection('players').doc(uid).get();
+	const data = doc.exists ? doc.data() : {};
+	return {
+		ownedSkins: Array.isArray(data.ownedSkins) ? data.ownedSkins : [],
+		equippedSkins: data.equippedSkins && typeof data.equippedSkins === 'object' ? data.equippedSkins : {},
+		gems: Number(data[GEMS_FIELD]) || 0,
+	};
+}
+
+async function purchaseSkin(uid, skinId, getSkinById, getEffectiveSkinPrice, isSkinAvailable) {
+	const skin = getSkinById(skinId);
+	if (!skin) {
+		throw new Error('Skin not found.');
+	}
+
+	if (!isSkinAvailable(skin)) {
+		throw new Error('Skin is not currently available.');
+	}
+
+	const price = getEffectiveSkinPrice(skin);
+	if (!Number.isFinite(price) || price < 0) {
+		throw new Error('Skin has an invalid price.');
+	}
+
+	const playerRef = db.collection('players').doc(uid);
+	let result;
+
+	await db.runTransaction(async (tx) => {
+		const playerDoc = await tx.get(playerRef);
+		const data = playerDoc.exists ? playerDoc.data() : {};
+		const ownedSkins = Array.isArray(data.ownedSkins) ? data.ownedSkins : [];
+		const gems = Number(data[GEMS_FIELD]) || 0;
+
+		if (ownedSkins.includes(skinId)) {
+			throw new Error('You already own this skin.');
+		}
+		if (gems < price) {
+			throw new Error('Not enough Gems.');
+		}
+
+		tx.set(
+			playerRef,
+			{
+				[GEMS_FIELD]: gems - price,
+				ownedSkins: [...ownedSkins, skinId],
+			},
+			{ merge: true }
+		);
+
+		result = {
+			ownedSkins: [...ownedSkins, skinId],
+			gems: gems - price,
+		};
+	});
+
+	return result;
+}
+
+async function equipOwnedSkin(uid, skinId, unitTypeId, getSkinById) {
+	const playerRef = db.collection('players').doc(uid);
+	let equippedSkins;
+
+	await db.runTransaction(async (tx) => {
+		const skin = getSkinById(skinId);
+		if (!skin) {
+			throw new Error('Skin not found.');
+		}
+		if (skin.unitTypeId !== unitTypeId) {
+			throw new Error('That skin does not belong to this unit type.');
+		}
+
+		const playerDoc = await tx.get(playerRef);
+		const data = playerDoc.exists ? playerDoc.data() : {};
+		const ownedSkins = Array.isArray(data.ownedSkins) ? data.ownedSkins : [];
+		if (!ownedSkins.includes(skinId)) {
+			throw new Error('You do not own this skin.');
+		}
+
+		equippedSkins =
+			data.equippedSkins && typeof data.equippedSkins === 'object'
+				? { ...data.equippedSkins }
+				: {};
+		equippedSkins[unitTypeId] = skinId;
+
+		tx.set(playerRef, { equippedSkins }, { merge: true });
+	});
+
+	return equippedSkins;
+}
+
+async function unequipSkin(uid, unitTypeId) {
+	const playerRef = db.collection('players').doc(uid);
+	await playerRef.set(
+		{
+			equippedSkins: {
+				[unitTypeId]: admin.firestore.FieldValue.delete(),
+			},
+		},
+		{ merge: true }
+	);
+	return (await getSkinState(uid)).equippedSkins;
+}
+
+// Thrown by claimUsername() when someone else already holds that username -
+// server.js catches this specifically to send back a 409 instead of a 500.
 class UsernameTakenError extends Error {
 	constructor(username) {
 		super(`Username "${username}" is already taken.`);
@@ -205,8 +368,6 @@ async function claimUsername(uid, username) {
 	const playerRef = db.collection('players').doc(uid);
 
 	await db.runTransaction(async (tx) => {
-		// Firestore transactions require ALL reads to happen before ANY writes -
-		// that's why both gets are up here, before the tx.set/tx.delete calls below.
 		const [usernameDoc, playerDoc] = await Promise.all([tx.get(usernameRef), tx.get(playerRef)]);
 
 		if (usernameDoc.exists && usernameDoc.data().uid !== uid) {
@@ -228,90 +389,10 @@ async function claimUsername(uid, username) {
 
 // looks up a player's uid from their claimed username (the `usernames`
 // collection - see claimUsername above). Used by the admin import helper,
-// where an admin targets a player by username rather than a raw Firebase uid
+// where an admin targets a player by username rather than a raw Firebase uid.
 async function getUidByUsername(username) {
 	const doc = await db.collection('usernames').doc(username.toLowerCase()).get();
 	return doc.exists ? doc.data().uid : null;
-}
-
-// atomically charges `uid` for skin `skinId` and adds it to their owned
-// skins - wrapped in a transaction (same pattern as claimUsername above) so
-// two rapid purchase clicks (or two requests racing) can't both succeed off
-// a stale gem balance, price and purchasability are never taken from the
-// client - both come from skins.js, which is the only source of truth for
-// what a skin actually costs and whether it's currently buyable at all
-async function buySkin(uid, skinId) {
-	const skin = getSkinById(skinId);
-	if (!skin) {
-		throw new Error('unknown skin');
-	}
-	if (!isPurchasable(skin)) {
-		throw new Error('this skin is not currently available for purchase');
-	}
-	const price = getEffectivePrice(skin);
-	const playerRef = db.collection('players').doc(uid);
-
-	await db.runTransaction(async (tx) => {
-		const playerDoc = await tx.get(playerRef);
-		const data = playerDoc.exists ? playerDoc.data() : {};
-		const ownedSkins = data.ownedSkins || [];
-
-		if (ownedSkins.includes(skinId)) {
-			throw new Error('you already own this skin');
-		}
-		const gems = data.gems || 0;
-		if (gems < price) {
-			throw new Error('not enough Gems');
-		}
-
-		tx.set(playerRef, { gems: gems - price, ownedSkins: [...ownedSkins, skinId] }, { merge: true });
-	});
-}
-
-// sets (or clears, if skinId is null) which owned skin is equipped for a
-// given unit type. A skin can only ever be equipped for the one unit type
-// it belongs to - equippedSkins is a map from unitType -> skinId, so
-// equipping a new skin for a unit type simply overwrites whatever was
-// equipped there before, no separate "unequip" call needed for that case
-async function equipSkinForUnitType(uid, unitType, skinId) {
-	const playerRef = db.collection('players').doc(uid);
-
-	await db.runTransaction(async (tx) => {
-		const playerDoc = await tx.get(playerRef);
-		const data = playerDoc.exists ? playerDoc.data() : {};
-		const ownedSkins = data.ownedSkins || [];
-
-		if (skinId !== null) {
-			const skin = getSkinById(skinId);
-			if (!skin) {
-				throw new Error('unknown skin');
-			}
-			if (skin.unitType !== unitType) {
-				throw new Error('this skin does not belong to that unit type');
-			}
-			if (!ownedSkins.includes(skinId)) {
-				throw new Error('you do not own this skin');
-			}
-		}
-
-		if (skinId === null) {
-			// firestore's { merge: true } does not remove a nested map key just
-			// because that key is absent from the object we send so We must send
-			// an explicit delete sentinel for the exact equippedSkins entry.
-			// FieldPath is used so unitType is treated as one literal map key
-			// even if its id ever contains characters meaningful to Firestore
-			// field-path parsing
-			tx.update(
-				playerRef,
-				new admin.firestore.FieldPath('equippedSkins', unitType),
-				admin.firestore.FieldValue.delete()
-			);
-		} else {
-			const equippedSkins = Object.assign({}, data.equippedSkins || {});
-			equippedSkins[unitType] = skinId;
-			tx.set(playerRef, { equippedSkins }, { merge: true });
-		}
-	});
 }
 
 // snapshots whatever's currently saved for uid into
@@ -330,26 +411,7 @@ async function backupPlayerData(uid, reason) {
 	return backupId;
 }
 
-// converts a raw modd.io/indie.fun "Platform Data" export (the JSON a player
-// gets from that game's "View Save Data" button on their own account page)
-// into the { attributes, variables } shape this engine already reads/writes
-// under players/{uid}.data.player - see getPersistentData/loadPersistentData
-// in engine/core/TaroEntity.js. Only the `.player` block is migrated - the
-// `.unit` block (health, speed, inventory) is intentionally dropped, since
-// that's session state that isn't meant to be persisted long-term anyway.
-//
-// IMPORTANT: this is the one place in the app where a player's own raw JSON
-// gets treated as trusted persisted data, so it can't just be passed
-// through. Two separate problems get fixed here, not one:
-//
-// 1. obviously, someone could just hand-edit "value" to whatever they want
-// 2. less obviously: loadPersistentData() in TaroEntity.js applies whatever
-//    "min"/"max" the saved data claims BEFORE clamping "value" to that same
-//    min/max - so a pasted {"min":0,"max":999999999,"value":999999999}
-//    would sail straight through that clamp too, since the clamp is being
-//    checked against attacker-supplied bounds so rebuilding min/max here from
-//    the game's own trusted schema (instead of copying whatever the pasted
-//    JSON claims) closes that off regardless of what the export contains
+// convert
 function transformModdPlayerExport(moddExport) {
 	if (!moddExport || typeof moddExport !== 'object' || !moddExport.player) {
 		throw new Error("That doesn't look like a modd.io/indie.fun save export - expected a top-level \"player\" key.");
@@ -423,6 +485,9 @@ function transformModdPlayerExport(moddExport) {
 // trouble - see /api/admin-import-modd-data in server.js).
 async function importModdData(uid, moddExport, { force = false } = {}) {
 	const current = await getPlayerData(uid);
+    const previousPlayer = (current && current.data && current.data.player) || {};
+    const previousAttributes = previousPlayer.attributes || {};
+    const username = (current && current.username) || uid;
 	if (current && current.moddImportedAt && !force) {
 		const err = new Error('This account has already imported its modd.io/indie.fun data.');
 		err.code = 'ALREADY_IMPORTED';
@@ -442,6 +507,14 @@ async function importModdData(uid, moddExport, { force = false } = {}) {
 	await savePersistedEntityData(uid, { player: mergedPlayer });
 	await db.collection('players').doc(uid).set({ moddImportedAt: Date.now() }, { merge: true });
 
+    await notifyDiscordImport({
+        uid,
+        username,
+        previousValues: previousAttributes,
+        newValues: mergedPlayer.attributes || {},
+        force,
+    });
+
 	return { backupId, skipped: incoming.skipped };
 }
 
@@ -458,8 +531,6 @@ async function wipePlayerData(uid) {
 		.set({ moddImportedAt: admin.firestore.FieldValue.delete() }, { merge: true });
 	return { backupId };
 }
-
-// lb
 const LEADERBOARD_ATTRIBUTE_IDS = {
 	wins: 'fKYSjs9Zw4', // Wins
 	coins: 'KAohfBnN6V', // Coins
@@ -467,14 +538,9 @@ const LEADERBOARD_ATTRIBUTE_IDS = {
 const LEADERBOARD_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // one week
 const LEADERBOARD_ENTRY_LIMIT = 50;
 
-// usernames that should never show up on the public leaderboard - dev/test
-// accounts, admin accounts used for debugging, that kind of thing. Matched
-// case-insensitively so "TestAccount12345" and "testaccount12345" are both
-// caught by one entry. Add to this list as needed; it only affects the
-// leaderboard display, not the accounts themselves - they keep their real
-// Wins/Coins, they just don't get ranked publicly.
+// username hiding
 const LEADERBOARD_EXCLUDED_USERNAMES = new Set(
-  ['testaccount12345',' testaccount12378', 'testaccount1', 'testaccount2', 'testaccount3', 'testaccount4', 'testaccount5'].map((name) => name.toLowerCase())
+  ['testaccount12345', 'testaccount1', 'testaccount2', 'testaccount3', 'testaccount4', 'testaccount5'].map((name) => name.toLowerCase())
 );
 
 // guards against a stampede of concurrent recomputes if several requests
@@ -496,10 +562,6 @@ async function computeLeaderboard() {
 			.get(),
 	]);
 
-	// firestore's orderBy on a nested field automatically excludes any
-	// document that doesn't have that field at all, so accounts that have
-	// never earned a Win/Coin simply won't appear in that particular
-	// leaderboard - which is the behavior we want here anyway
 	function toEntries(snapshot, attrId) {
 		return snapshot.docs
 			.map((doc) => {
@@ -555,10 +617,12 @@ module.exports = {
 	claimUsername,
 	UsernameTakenError,
 	getUidByUsername,
-	buySkin,
-	equipSkinForUnitType,
 	backupPlayerData,
 	importModdData,
 	wipePlayerData,
 	getLeaderboard,
+	getSkinState,
+	purchaseSkin,
+	equipOwnedSkin,
+	unequipSkin,
 };
