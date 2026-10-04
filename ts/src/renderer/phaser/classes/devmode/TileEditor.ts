@@ -254,6 +254,36 @@ class TileEditor {
 		});
 	}
 
+	/**
+	 * Fast path for editor tile changes. Phaser's putTileAt() performs a lot of
+	 * tile bookkeeping that is unnecessary when only the tile index changes.
+	 * The editor already maintains the Taro map data and handles wall physics
+	 * separately, so updating the existing Tile object directly avoids the large
+	 * per-tile cost that made bulk edits hitch.
+	 */
+	private setTileIndexFast(
+		map: Phaser.Tilemaps.Tilemap,
+		tileX: number,
+		tileY: number,
+		index: number,
+		layer: number
+	): void {
+		const layerData = map.layers[layer];
+		const tile = layerData?.data?.[tileY]?.[tileX];
+
+		if (tile) {
+			tile.index = index;
+			tile.tint = 0xffffff;
+			return;
+		}
+
+		// Sparse layers can legitimately contain null entries. Preserve the
+		// old behavior for those rare cells by letting Phaser create the Tile.
+		map.putTileAt(index, tileX, tileY, false, layer);
+		const fallbackTile = map.layers[layer]?.data?.[tileY]?.[tileX];
+		if (fallbackTile) fallbackTile.tint = 0xffffff;
+	}
+
 	private processEditQueue(): void {
 		const start = performance.now();
 		const frameBudget = 4;
@@ -282,9 +312,7 @@ class TileEditor {
 						if (layerData.data[mapIndex] !== index) {
 							let phaserIndex = index === 0 ? -1 : index;
 							if (this.gameScene.tilemapLayers[job.layer]?.visible !== false) {
-								map.putTileAt(phaserIndex, job.tileX + job.x, job.tileY + job.y, false, job.layer);
-								const tile = map.getTileAt(job.tileX + job.x, job.tileY + job.y, true, job.layer);
-								if (tile) tile.tint = 0xffffff;
+								this.setTileIndexFast(map, job.tileX + job.x, job.tileY + job.y, phaserIndex, job.layer);
 							}
 							layerData.data[mapIndex] = index;
 						}
@@ -387,13 +415,11 @@ class TileEditor {
 				for (let y = 0; y < size.y; y++) {
 					if (sample[x] && sample[x][y] !== undefined && DevModeScene.pointerInsideMap(tileX + x, tileY + y, map)) {
 						let index = sample[x][y];
-						if (
-							index !== map.getTileAt(tileX + x, tileY + y, true, layer).index &&
-							!(index === 0 && map.getTileAt(tileX + x, tileY + y, true, layer).index === -1)
-						) {
+						const tile = map.layers[layer]?.data?.[tileY + y]?.[tileX + x];
+						const currentIndex = tile ? tile.index : map.getTileAt(tileX + x, tileY + y, true, layer)?.index;
+						if (index !== currentIndex && !(index === 0 && currentIndex === -1)) {
 							if (index === 0) index = -1;
-							map.putTileAt(index, tileX + x, tileY + y, false, layer);
-							map.getTileAt(tileX + x, tileY + y, true, layer).tint = 0xffffff;
+							this.setTileIndexFast(map, tileX + x, tileY + y, index, layer);
 							if (index === -1) index = 0;
 							taroMap.layers[layer].data[(tileY + y) * width + tileX + x] = index;
 						}
@@ -468,7 +494,7 @@ class TileEditor {
 					addToLimits?.({ x: nowPos.x, y: nowPos.y });
 					continue;
 				}
-				tileMap.putTileAt(newTile, nowPos.x, nowPos.y, false, layer);
+				this.setTileIndexFast(tileMap, nowPos.x, nowPos.y, newTile, layer);
 				//save tile change to taro.game.map.data
 				if (newTile === -1) {
 					newTile = 0;
@@ -485,7 +511,7 @@ class TileEditor {
 					continue;
 				}
 
-				map.putTileAt(newTile, nowPos.x, nowPos.y, false, layer);
+				this.setTileIndexFast(map as Phaser.Tilemaps.Tilemap, nowPos.x, nowPos.y, newTile, layer);
 			}
 			if (nowPos.x > 0 && !closedQueue[nowPos.x - 1]?.[nowPos.y]) {
 				openQueue.push({ x: nowPos.x - 1, y: nowPos.y });
@@ -510,7 +536,7 @@ class TileEditor {
 		for (let i = 0; i < map.width; i++) {
 			for (let j = 0; j < map.height; j++) {
 				if (map.layers[layer].data[j * width + i] !== 0) {
-					tileMap.putTileAt(-1, i, j, false, layer);
+					this.setTileIndexFast(tileMap, i, j, -1, layer);
 					//save tile change to taro.game.map.data
 					map.layers[layer].data[j * width + i] = 0;
 				}
