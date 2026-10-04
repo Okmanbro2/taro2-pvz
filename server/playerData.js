@@ -19,13 +19,7 @@ const DISCORD_IMPORT_WEBHOOK_URL = process.env.DISCORD_IMPORT_WEBHOOK_URL || '';
 async function notifyDiscordImport({ uid, username, previousValues, newValues, force }) {
     if (!DISCORD_IMPORT_WEBHOOK_URL) return;
 
-    const now = new Date();
-    const date = `${now.getMonth() + 1}/${now.getDate()}`;
-    const time = now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-    });
+    const discordTimestamp = Math.floor(Date.now() / 1000);
 
     const changes = [];
     const allIds = new Set([
@@ -50,7 +44,7 @@ async function notifyDiscordImport({ uid, username, previousValues, newValues, f
         changes.push(`${label}: ${oldValue} => ${newValue}`);
     }
 
-    const header = `Data import: ${date}, ${time}, ${username || uid}`;
+    const header = `Data import: <t:${discordTimestamp}:F>, ${username || uid}`;
     const changeLines = changes.length > 0
         ? changes.slice(0, 50)
         : ['No attribute value changes.'];
