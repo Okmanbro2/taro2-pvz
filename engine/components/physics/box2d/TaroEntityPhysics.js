@@ -88,11 +88,13 @@ var TaroEntityPhysics = TaroEntity.extend({
 		    if (sizeY) {
 		        shapeData.halfHeight = sizeY / 2;
 		    }
-		    if (useScaledDimensions && bodyDef?.fixtures?.[0]?.shape?.type === 'circle' && sizeX && sizeY) {
-		        // Box2D circles use radius rather than rectangle half extents.
-		        // A circle cannot represent different width/height, so use the larger requested axis.
+		    if (bodyDef?.fixtures?.[0]?.shape?.type === 'circle' && sizeX && sizeY) {
+		        // Box2D circles use radius, not rectangle half extents. Keep the radius
+		        // tied to the body's actual dimensions on every body rebuild, not only
+		        // when createEntityWithDimensions requests scaled dimensions. A circle
+		        // cannot match a non-square box exactly, so use the larger axis.
 		        shapeData.radius = Math.max(sizeX, sizeY) / 2;
-		    }
+	    }
 			if (offsetX) {
 				shapeData.x = offsetX;
 			}
@@ -100,10 +102,14 @@ var TaroEntityPhysics = TaroEntity.extend({
 				shapeData.y = offsetY;
 			}
 			if (this._stats.scaleBody) {
-				// b2d expects halves
+				// b2d expects halves for rectangles. Circles instead need a radius.
 				let scaleBody2 = Number(this._stats.scaleBody) / 2;
-				shapeData.halfWidth = (sizeX ?? bodyDef.width) * scaleBody2;
-				shapeData.halfHeight = (sizeY ?? bodyDef.height) * scaleBody2;
+				if (bodyDef?.fixtures?.[0]?.shape?.type === 'circle') {
+					shapeData.radius = Math.max(sizeX ?? bodyDef.width, sizeY ?? bodyDef.height) * scaleBody2;
+				} else {
+					shapeData.halfWidth = (sizeX ?? bodyDef.width) * scaleBody2;
+					shapeData.halfHeight = (sizeY ?? bodyDef.height) * scaleBody2;
+				}
 			}
 		}
 
@@ -321,11 +327,7 @@ var TaroEntityPhysics = TaroEntity.extend({
 
 	setLinearVelocity: function (x, y, z, isLossTolerant) {
 		// if body doesn't exist yet, queue
-		// A loss-tolerant update may skip replication, but it must not skip
-		// the body-existence check. Projectiles can receive velocity before
-		// their queued physics body has been created; applying it immediately
-		// in that case silently loses the initial velocity.
-		if (!taro.physics.isLocked() && this.hasPhysicsBody()) {
+		if ((!taro.physics.isLocked() && this.hasPhysicsBody()) || isLossTolerant) {
 			this.setLinearVelocityLT(x, y);
 		} else {
 			this.queueAction({
