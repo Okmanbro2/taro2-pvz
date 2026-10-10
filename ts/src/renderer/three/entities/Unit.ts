@@ -379,6 +379,11 @@ namespace Renderer {
 				} else {
 					if (this.body instanceof AnimatedSprite) {
 						this.body.setScale(sx, sy);
+					} else if (this.body instanceof Sprite) {
+						// Sprite geometry is a plane whose visible dimensions are
+						// controlled by Sprite.setScale; resizing only the entity/body
+						// leaves the rendered sprite at its old size.
+						this.body.setScale(sx, sz);
 					} else {
 						this.body.setSize(sx, sz, sy);
 					}
