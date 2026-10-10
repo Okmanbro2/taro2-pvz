@@ -321,7 +321,11 @@ var TaroEntityPhysics = TaroEntity.extend({
 
 	setLinearVelocity: function (x, y, z, isLossTolerant) {
 		// if body doesn't exist yet, queue
-		if ((!taro.physics.isLocked() && this.hasPhysicsBody()) || isLossTolerant) {
+		// A loss-tolerant update may skip replication, but it must not skip
+		// the body-existence check. Projectiles can receive velocity before
+		// their queued physics body has been created; applying it immediately
+		// in that case silently loses the initial velocity.
+		if (!taro.physics.isLocked() && this.hasPhysicsBody()) {
 			this.setLinearVelocityLT(x, y);
 		} else {
 			this.queueAction({
