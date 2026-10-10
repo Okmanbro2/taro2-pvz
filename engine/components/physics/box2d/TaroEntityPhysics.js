@@ -67,43 +67,40 @@ var TaroEntityPhysics = TaroEntity.extend({
 		// Use the entity body's dimensions for the collision fixture.
 		// The body's width/height are the authoritative collision bounds.
 		if (bodyDef?.fixtures) {
-		    // Circular fixtures must follow the entity's current dimensions on every
-		    // body rebuild. Preserve the existing dimension-selection behavior for
-		    // rectangles to avoid changing their collision sizing.
+		    // createEntity...WithDimensions calls updateBody(..., ..., true) from
+		    // scaleDimensions(). Honour that flag so the physics fixture uses the
+		    // requested per-instance dimensions instead of the asset's base body size.
 		    var requestedWidth = Number(this._stats?.width);
-		    var requestedHeight = Number(this._stats?.height);
-		    var isCircleFixture = bodyDef?.fixtures?.[0]?.shape?.type === 'circle';
-		    var sizeX = isCircleFixture && Number.isFinite(requestedWidth) && requestedWidth > 0
-		        ? requestedWidth
-		        : useScaledDimensions && Number.isFinite(requestedWidth) && requestedWidth > 0
-		            ? requestedWidth
-		            : bodyDef?.width;
-		    var sizeY = isCircleFixture && Number.isFinite(requestedHeight) && requestedHeight > 0
-		        ? requestedHeight
-		        : useScaledDimensions && Number.isFinite(requestedHeight) && requestedHeight > 0
-		            ? requestedHeight
-		            : bodyDef?.height;
-		    var offsetX = bodyDef?.fixtures[0].offset?.x;
-		    var offsetY = bodyDef?.fixtures[0].offset?.y;
-		
-		    if (shapeData === undefined) {
-		        shapeData = {};
-		    }
-		
-		    if (sizeX) {
-		        shapeData.halfWidth = sizeX / 2;
-		    }
-		
-		    if (sizeY) {
-		        shapeData.halfHeight = sizeY / 2;
-		    }
-		    if (bodyDef?.fixtures?.[0]?.shape?.type === 'circle' && sizeX && sizeY) {
-		        // Box2D circles use radius, not rectangle half extents. Keep the radius
-		        // tied to the body's actual dimensions on every body rebuild, not only
-		        // when createEntityWithDimensions requests scaled dimensions. A circle
-		        // cannot match a non-square box exactly, so use the larger axis.
-		        shapeData.radius = Math.max(sizeX, sizeY) / 2;
-	    }
+			var requestedHeight = Number(this._stats?.height);
+			var isCircle = bodyDef?.fixtures?.[0]?.shape?.type === 'circle';
+			// Circle fixtures follow live entity dimensions on every rebuild.
+			// Keep the existing dimension selection unchanged for rectangles.
+			var hasRequestedWidth = Number.isFinite(requestedWidth) && requestedWidth > 0;
+			var hasRequestedHeight = Number.isFinite(requestedHeight) && requestedHeight > 0;
+			var sizeX = (isCircle || useScaledDimensions) && hasRequestedWidth ? requestedWidth : bodyDef?.width;
+			var sizeY = (isCircle || useScaledDimensions) && hasRequestedHeight ? requestedHeight : bodyDef?.height;
+			var offsetX = bodyDef?.fixtures[0].offset?.x;
+			var offsetY = bodyDef?.fixtures[0].offset?.y;
+
+			if (shapeData === undefined) {
+				shapeData = {};
+			}
+
+			if (sizeX) {
+				shapeData.halfWidth = sizeX / 2;
+			}
+
+			if (sizeY) {
+				shapeData.halfHeight = sizeY / 2;
+			}
+			if (isCircle && sizeX && sizeY) {
+				// A circle has one radius, so cover the longer current body axis.
+				var circleScale = Number(this._stats.scaleBody);
+				if (!Number.isFinite(circleScale) || circleScale <= 0) {
+					circleScale = 1;
+				}
+				shapeData.radius = (Math.max(sizeX, sizeY) / 2) * circleScale;
+			}
 			if (offsetX) {
 				shapeData.x = offsetX;
 			}
@@ -111,14 +108,10 @@ var TaroEntityPhysics = TaroEntity.extend({
 				shapeData.y = offsetY;
 			}
 			if (this._stats.scaleBody) {
-				// b2d expects halves for rectangles. Circles instead need a radius.
+				// b2d expects halves
 				let scaleBody2 = Number(this._stats.scaleBody) / 2;
-				if (bodyDef?.fixtures?.[0]?.shape?.type === 'circle') {
-					shapeData.radius = Math.max(sizeX ?? bodyDef.width, sizeY ?? bodyDef.height) * scaleBody2;
-				} else {
-					shapeData.halfWidth = (sizeX ?? bodyDef.width) * scaleBody2;
-					shapeData.halfHeight = (sizeY ?? bodyDef.height) * scaleBody2;
-				}
+				shapeData.halfWidth = (sizeX ?? bodyDef.width) * scaleBody2;
+				shapeData.halfHeight = (sizeY ?? bodyDef.height) * scaleBody2;
 			}
 		}
 
@@ -627,8 +620,11 @@ var TaroEntityPhysics = TaroEntity.extend({
 
 		switch (shapeType) {
 			case 'circle': {
-				var normalizer = 0.5;
-				shapeData.radius = bodyDef.width * scale * normalizer;
+				var currentWidth = Number(this._stats?.width);
+				var currentHeight = Number(this._stats?.height);
+				var baseWidth = Number.isFinite(currentWidth) && currentWidth > 0 ? currentWidth : bodyDef.width;
+				var baseHeight = Number.isFinite(currentHeight) && currentHeight > 0 ? currentHeight : bodyDef.height;
+				shapeData.radius = Math.max(baseWidth, baseHeight) * scale * 0.5;
 				break;
 			}
 			case 'rectangle': {
