@@ -2864,8 +2864,12 @@ var ParameterComponent = TaroEntity.extend({
 			entityBounds: function (text, vars) {
 				var entity = self.getValue(text.entity, vars);
 				if (entity && self._entity.script.action.entityCategories.indexOf(entity._category) > -1) {
-					// for sprite-only items that are carried by units
-					return entity.getBounds();
+					// TaroEntity does not implement getBounds(). Use its world-space
+					// axis-aligned bounding box instead. This returns the full rectangle
+					// (x, y, width, height), not just the entity's center position.
+					if (typeof entity.aabb === 'function') {
+						return entity.aabb(true);
+					}
 				}
 			},
 
