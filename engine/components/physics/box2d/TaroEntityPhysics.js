@@ -72,8 +72,12 @@ var TaroEntityPhysics = TaroEntity.extend({
 		    // requested per-instance dimensions instead of the asset's base body size.
 		    var requestedWidth = Number(this._stats?.width);
 		    var requestedHeight = Number(this._stats?.height);
-		    var sizeX = useScaledDimensions && Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : bodyDef?.width;
-		    var sizeY = useScaledDimensions && Number.isFinite(requestedHeight) && requestedHeight > 0 ? requestedHeight : bodyDef?.height;
+		    // Circular fixtures must follow the entity's current dimensions on every
+		    // body rebuild, not just calls made through scaleDimensions().
+		    // Keep the existing dimension-selection behavior for rectangles.
+		    var isCircleFixture = bodyDef?.fixtures?.[0]?.shape?.type === 'circle';
+		    var sizeX = (isCircleFixture || useScaledDimensions) && Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : bodyDef?.width;
+		    var sizeY = (isCircleFixture || useScaledDimensions) && Number.isFinite(requestedHeight) && requestedHeight > 0 ? requestedHeight : bodyDef?.height;
 		    var offsetX = bodyDef?.fixtures[0].offset?.x;
 		    var offsetY = bodyDef?.fixtures[0].offset?.y;
 		
@@ -88,13 +92,13 @@ var TaroEntityPhysics = TaroEntity.extend({
 		    if (sizeY) {
 		        shapeData.halfHeight = sizeY / 2;
 		    }
-		    if (bodyDef?.fixtures?.[0]?.shape?.type === 'circle' && sizeX && sizeY) {
-		        // Box2D circles use radius, not rectangle half extents. Keep the radius
-		        // tied to the body's actual dimensions on every body rebuild, not only
-		        // when createEntityWithDimensions requests scaled dimensions. A circle
-		        // cannot match a non-square box exactly, so use the larger axis.
+		    if (isCircleFixture && sizeX && sizeY) {
+		        // Box2D circles use radius rather than rectangle half extents.
+		        // Recompute on every body rebuild so the hitbox follows the current
+		        // entity body dimensions. A circle cannot match a non-square body
+		        // exactly, so its diameter covers the larger axis.
 		        shapeData.radius = Math.max(sizeX, sizeY) / 2;
-	    }
+		    }
 			if (offsetX) {
 				shapeData.x = offsetX;
 			}
@@ -102,11 +106,12 @@ var TaroEntityPhysics = TaroEntity.extend({
 				shapeData.y = offsetY;
 			}
 			if (this._stats.scaleBody) {
-				// b2d expects halves for rectangles. Circles instead need a radius.
 				let scaleBody2 = Number(this._stats.scaleBody) / 2;
-				if (bodyDef?.fixtures?.[0]?.shape?.type === 'circle') {
+				if (isCircleFixture) {
+					// Circle fixtures need a radius; halfWidth/halfHeight are ignored.
 					shapeData.radius = Math.max(sizeX ?? bodyDef.width, sizeY ?? bodyDef.height) * scaleBody2;
 				} else {
+					// b2d expects half extents for rectangles.
 					shapeData.halfWidth = (sizeX ?? bodyDef.width) * scaleBody2;
 					shapeData.halfHeight = (sizeY ?? bodyDef.height) * scaleBody2;
 				}
