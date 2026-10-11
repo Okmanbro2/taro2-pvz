@@ -2878,7 +2878,47 @@ var ParameterComponent = TaroEntity.extend({
 			entityBounds: function (text, vars) {
 				var entity = self.getValue(text.entity, vars);
 				if (entity && self._entity.script.action.entityCategories.indexOf(entity._category) > -1) {
-					// for sprite-only items that are carried by units
+					var stats = entity._stats;
+					var currentBody = stats && stats.currentBody;
+
+					// Carried sprite-only items use owner/anchor positioning in getBounds().
+					if (entity._category === 'item' && currentBody && currentBody.type === 'spriteOnly') {
+						return entity.getBounds();
+					}
+
+					// Use the body currently selected by setState(). On the server,
+					// stateId is streamed rather than assigned here, so resolving the
+					// body from states[stateId] can select stale state geometry.
+					// getBounds() otherwise relies on cached _bounds2d dimensions,
+					// which may not have been refreshed after a body change.
+					var width = Number(currentBody && currentBody.width);
+					var height = Number(currentBody && currentBody.height);
+					var scale = Number(stats && stats.scale);
+					if (!isFinite(scale) || scale <= 0) {
+						scale = 1;
+					}
+
+					if (
+						currentBody &&
+						currentBody.type !== 'none' &&
+						currentBody.type !== 'spriteOnly' &&
+						isFinite(width) && width > 0 &&
+						isFinite(height) && height > 0 &&
+						entity._translate &&
+						isFinite(Number(entity._translate.x)) &&
+						isFinite(Number(entity._translate.y))
+					) {
+						width *= scale;
+						height *= scale;
+						return {
+							x: entity._translate.x - width / 2,
+							y: entity._translate.y - height / 2,
+							width: width,
+							height: height,
+						};
+					}
+
+					// Preserve existing bounds behavior for entities without a usable body.
 					return entity.getBounds();
 				}
 			},
