@@ -638,7 +638,14 @@ var TaroEntityPhysics = TaroEntity.extend({
 		}
 
 		bodyDef.fixtures[0].shape.data = shapeData;
-		self.updateBody();
+
+		// Rebuilding a Box2D body resets its linear velocity. Preserve the
+		// current velocity when the rebuild is caused by body scaling, so
+		// newly-created projectiles do not stop moving after being resized.
+		// updateBody() still accepts an explicit velocity from callers that
+		// need to replace it; this path only carries forward the current one.
+		var currentVelocity = this.hasPhysicsBody() ? this.getLinearVelocity() : null;
+		self.updateBody(currentVelocity ? { velocity: currentVelocity } : undefined);
 	},
 
 	/**
