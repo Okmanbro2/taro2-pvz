@@ -24,10 +24,15 @@ function sanitizeJsonArrayString(string) {
 		// mutate/consume this one
 		isEscaped = inString && !wasEscaped && char === '\\';
 
-		if (inString && !wasEscaped && code >= 0x00 && code <= 0x1f) {
-			// Raw control character inside a string literal - drop it (this
-			// also matches the original intent of the "\n" cleanup step
-			// authors relied on, which silently failed to strip these).
+		if (inString && code >= 0x00 && code <= 0x1f) {
+			// JSON forbids literal control characters inside quoted strings,
+			// even when one immediately follows a backslash. If the backslash
+			// was intended to escape this raw character, remove that backslash
+			// too; otherwise it would accidentally escape the next character.
+			if (wasEscaped && result.endsWith('\\')) {
+				result = result.slice(0, -1);
+			}
+			isEscaped = false;
 			continue;
 		}
 
@@ -946,6 +951,7 @@ var ParameterComponent = TaroEntity.extend({
 						break;
 
 					case 'convertNumberToLargeNotation':
+						{
 						var value = self.getValue(text.value, vars);
 						const suffixes = [
 							'',
@@ -996,7 +1002,10 @@ var ParameterComponent = TaroEntity.extend({
 
 						break;
 
+						}
+
 					case 'getEntityVelocityX':
+						{
 						if (entity?.hasPhysicsBody()) {
 							const velocity = entity.getLinearVelocity();
 							returnValue = parseFloat(velocity.x).toFixed(2) || 0;
@@ -1004,13 +1013,18 @@ var ParameterComponent = TaroEntity.extend({
 
 						break;
 
+						}
+
 					case 'getEntityVelocityY':
+						{
 						if (entity?.hasPhysicsBody()) {
 							const velocity = entity.getLinearVelocity();
 							returnValue = parseFloat(velocity.y).toFixed(2) || 0;
 						}
 
 						break;
+
+						}
 
 					case 'getLastPurchasedUnit':
 						var id = taro.game.lastPurchasedUnitId;
