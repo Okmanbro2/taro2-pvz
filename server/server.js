@@ -15,8 +15,9 @@ const {
 	claimUsername,
 	UsernameTakenError,
 	getUidByUsername,
-	buySkin,
-	equipSkinForUnitType,
+	purchaseSkin,
+	equipOwnedSkin,
+	unequipSkin,
 	importModdData,
 	wipePlayerData,
 	getLeaderboard,
@@ -500,7 +501,7 @@ var Server = TaroClass.extend({
 				return res.status(400).json({ error: 'missing skinId' });
 			}
 			try {
-				await buySkin(req.uid, skinId);
+				await purchaseSkin(req.uid, skinId, getSkinById, getEffectivePrice, isPurchasable);
 				return res.json({ success: true });
 			} catch (err) {
 				return res.status(400).json({ error: err.message });
@@ -516,7 +517,7 @@ var Server = TaroClass.extend({
 				return res.status(400).json({ error: 'missing unitType' });
 			}
 			try {
-				await equipSkinForUnitType(req.uid, unitType, skinId);
+				await equipOwnedSkin(req.uid, skinId, unitType, getSkinById);
 				return res.json({ success: true });
 			} catch (err) {
 				return res.status(400).json({ error: err.message });
@@ -529,7 +530,7 @@ var Server = TaroClass.extend({
 				return res.status(400).json({ error: 'missing unitType' });
 			}
 			try {
-				await equipSkinForUnitType(req.uid, unitType, null);
+				await unequipSkin(req.uid, unitType);
 				return res.json({ success: true });
 			} catch (err) {
 				return res.status(400).json({ error: err.message });
