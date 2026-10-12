@@ -304,7 +304,7 @@ async function equipOwnedSkin(uid, skinId, unitTypeId, getSkinById) {
 		if (!skin) {
 			throw new Error('Skin not found.');
 		}
-		if (skin.unitTypeId !== unitTypeId) {
+		if (skin.unitType !== unitTypeId) {
 			throw new Error('That skin does not belong to this unit type.');
 		}
 
