@@ -120,7 +120,7 @@
 			"price": 25,
 			"availability": "limited",
 			"availableFrom": "2026-09-30T19:00:00Z",
-			"availableUntil": "2026-11-01T00:00:00Z",
+			"availableUntil": "2026-11-16T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
 		},
@@ -237,7 +237,7 @@
 			"price": 40,
 			"availability": "limited",
 			"availableFrom": "2026-09-30T19:00:00Z",
-			"availableUntil": "2026-11-01T00:00:00Z",
+			"availableUntil": "2026-11-16T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
 		},
@@ -250,7 +250,7 @@
 			"price": 40,
 			"availability": "limited",
 			"availableFrom": "2026-09-30T19:00:00Z",
-			"availableUntil": "2026-11-01T00:00:00Z",
+			"availableUntil": "2026-11-16T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
 		},
@@ -263,7 +263,7 @@
 			"price": 40,
 			"availability": "limited",
 			"availableFrom": "2026-09-30T19:00:00Z",
-			"availableUntil": "2026-11-01T00:00:00Z",
+			"availableUntil": "2026-11-16T00:00:00Z",
 			"excludeFromGlobalSale": false,
 			"sale": null
 		}
