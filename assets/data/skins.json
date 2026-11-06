@@ -1,10 +1,10 @@
 {
 	"globalSale": {
-        "active": false,
-        "discountPercent": 0,
-        "label": "",
-        "start": null,
-        "end": null
+        "active": true,
+        "discountPercent": 15,
+        "label": "Halloween Sale",
+        "start": "2026-11-6T10:42:00Z",
+        "end": "2026-11-16T00:00:00Z"
     },
 	"skins": [
 		{
