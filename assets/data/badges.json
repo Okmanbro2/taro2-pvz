@@ -93,9 +93,9 @@
 		},
 		{
 			"id": "h26-badge",
-			"name": "Spooked in '26",
+			"name": "Undying",
 			"description": "Beat the Lawn of Doom 2026 Event!",
-			"icon": "/assets/images/LawnOfDoomBadge.png",
+			"icon": "/assets/images/NewHalloweenBadge.png",
 			"reward": "250 Gems, Event Rewards"
 		}
 	]
