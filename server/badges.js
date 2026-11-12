@@ -50,6 +50,7 @@ const ATTR = {
 	// same deal - set in-game by the Disco Zombie's embedded script
 	// (unitTypes.xbM8Ft4vBX), so the badge only needed the rule below
 	DISCO_MODE_WON: 'tngCfbbF9I',
+	LAWN_OF_DOOM_WON: 'bLD2026Won',
 };
 
 // every "<plant>Owned?" boolean player attribute in the game
@@ -134,6 +135,10 @@ const BADGE_DEFS = {
 	'disco-badge': {
 		check: (attrs) => !!attrValue(attrs, ATTR.DISCO_MODE_WON),
 		rewardGems: 100,
+	},
+	'h26-badge': {
+		check: (attrs) => !!attrValue(attrs, ATTR.LAWN_OF_DOOM_WON),
+		rewardGems: 250,
 	},
 };
 
