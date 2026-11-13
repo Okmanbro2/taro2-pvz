@@ -121,6 +121,12 @@ var ServerNetworkEvents = {
 			// data._id is either '' (guest) or a Firebase uid that net.io-server's
 			// socketConnection() already verified - see that file if you need to
 			// double check how it gets here.
+			var existingPlayer = taro.game?.getPlayerByClientId(clientId);
+			if (existingPlayer) {
+				existingPlayer.joinGame();
+				return;
+			}
+
 			var persistedData = null;
 			if (data._id) {
 				try {

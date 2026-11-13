@@ -228,6 +228,7 @@ var MenuUiComponent = TaroEntity.extend({
 
 			$('#return-to-menu-button').on('click', function () {
 				$('#play-game-button').text('Continue');
+				$('#play-game-button-wrapper').addClass('pvz-menu-returned');
 				$('#play-game-button-wrapper').removeClass('d-none-important');
 				if (typeof window.showAuthWidget === 'function') {
 					window.showAuthWidget();
@@ -345,6 +346,7 @@ var MenuUiComponent = TaroEntity.extend({
 						taro.client.connectToServer();
 					}
 				}
+				$('#play-game-button-wrapper').removeClass('pvz-menu-returned');
 				$('#play-game-button-wrapper').addClass('d-none-important');
 				if (typeof window.hideAuthWidget === 'function') {
 					window.hideAuthWidget();
