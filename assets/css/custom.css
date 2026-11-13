@@ -971,11 +971,11 @@ canvas {
 }
 
 #account-panel {
-  z-index: 10000 !important;
+  z-index: 10002 !important;
 }
 
 #auth-widget {
-  z-index: 9999;
+  z-index: 10001 !important;
 }
 
 /* dev console accordion handles */
