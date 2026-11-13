@@ -1,14 +1,10 @@
 const { getPlayerData } = require('./playerData');
 
-// Pool of names randomly assigned to guest players in standalone mode.
-// Add/remove/edit entries as you like.
 const RANDOM_PLAYER_NAMES = [
 	//'alpha', 'phoenix', 'general', 'rook', 'vigor', 'user', 'player',
 	'plant', 'zombie', 'seedling', 'tombstone', 'lawnmower', 'flowerpot', 'lilypad',
 ];
 
-// Picks a name from RANDOM_PLAYER_NAMES and appends a number
-// Retries with a new number on the rare chance that exact combo is already taken.
 function generateRandomPlayerName() {
 	var existingNames = taro
 		.$$('player')

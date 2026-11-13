@@ -1037,6 +1037,7 @@ var Player = TaroEntity.extend({
 			$('#modd-shop-div').addClass('d-flex');
 			taro.client.eventLog.push([taro._currentTime - taro.client.playerJoinedAt, 'hide menu called']);
 			taro.menuUi.hideMenu(); // if player's already joined the game, then just hide menu when "play game" button is clicked
+			$('#return-to-menu-button').removeClass('d-none-important');
 			if (!taro.client.guestmode) {
 				$('.open-menu-button').show();
 			}

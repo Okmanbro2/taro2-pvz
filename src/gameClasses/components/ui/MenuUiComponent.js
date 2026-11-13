@@ -226,6 +226,25 @@ var MenuUiComponent = TaroEntity.extend({
 				}
 			});
 
+			$('#return-to-menu-button').on('click', function () {
+				$('#play-game-button').text('Continue');
+				$('#play-game-button-wrapper').removeClass('d-none-important');
+				if (typeof window.showAuthWidget === 'function') {
+					window.showAuthWidget();
+				}
+				$(this).addClass('d-none-important');
+
+				if (window.GAME_PLAY_STARTED) {
+					if (window.STATIC_EXPORT_ENABLED) {
+						window.PokiSDK?.gameplayStop?.();
+					}
+					if (window.IS_CRAZY_GAMES_ENV) {
+						window.CrazyGames?.SDK?.game?.gameplayStop?.();
+					}
+					window.GAME_PLAY_STARTED = false;
+				}
+			});
+
 			$('#change-server').on('click', function () {
 				window.location.replace(`/play/${gameSlug}?serverId=${taro.client.changedServer}&joinGame=true`);
 			});
