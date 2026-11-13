@@ -1774,26 +1774,27 @@ div#dev-console-table {
 
 .pvz-return-to-menu-button {
 	position: fixed;
-	top: 14px;
-	right: 14px;
-	z-index: 1100;
-	padding: 8px 18px;
-	border: 3px solid #5b8f32;
-	border-radius: 10px;
+	top: 12px;
+	right: 12px;
+	z-index: 10002;
+	padding: 4px 10px;
+	border: 2px solid #5b8f32;
+	border-radius: 8px;
 	background: var(--pvz-grass);
-	box-shadow: 0 4px 0 #5b8f32;
+	box-shadow: 0 3px 0 #5b8f32;
 	color: var(--pvz-cream);
 	font-family: 'Brianne\'s Hand', cursive;
-	font-size: 1.25em;
+	font-size: 1em;
 	cursor: pointer;
+	pointer-events: auto;
 }
 
 .pvz-return-to-menu-button:hover {
-	transform: translateY(2px);
+	transform: translateY(1px);
 	box-shadow: 0 2px 0 #5b8f32;
 }
 
 .pvz-return-to-menu-button:active {
-	transform: translateY(4px);
+	transform: translateY(3px);
 	box-shadow: none;
 }
