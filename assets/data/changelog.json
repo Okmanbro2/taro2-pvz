@@ -1,25 +1,17 @@
 {
-	"version": "3.7.3",
+	"version": "3.8.0",
 	"entries": [
 		{
-			"title": "Sorry for the delay!",
-			"description": "We're sorry on the delay for the event - in compensation.."
+			"title": "LAWN OF DOOM: PART 2",
+			"description": "Lawn of Doom Part 2 is here! The Event is released!"
 		},
 		{
-			"title": "Candy Shop",
-			"description": "Made the Candies Shop public, giving access to three (soon four) new plants!"
+			"title": "New Boss!",
+			"description": "Brand new zombie boss: Sasquatch!"
 		},
 		{
-			"title": "New house upgrades!",
-			"description": "Added the Butter Strike and Wallnut Defense upgrades to the house shop!"
+			"title": "New Modifier!",
+			"description": "New Bombkin Modifier; Bombkin Frenzy!"
 		},
-		{
-			"title": "Lawn of Doom is coming soon!",
-			"description": "Stay sharp!"
-		},
-		{
-			"title": "Join our Discord Server!",
-			"description": "Join our Discord Server for the full changelog!"
-		}
 	]
 }
