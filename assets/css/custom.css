@@ -1823,3 +1823,44 @@ div#dev-console-table {
 	transform: translateY(3px);
 	box-shadow: none;
 }
+
+/* In-game dialogue and shop typography */
+#modd-dialogue-container,
+#modd-dialogue-container * {
+  font-family: 'Brianne\'s Hand', cursive !important;
+}
+
+#modd-item-shop-modal,
+#modd-item-shop-modal * {
+  font-family: 'Brianne\'s Hand', cursive !important;
+}
+
+#modd-item-shop-modal .items-shop .item-shop-button-div > .no-selection {
+  color: #fff !important;
+  text-shadow:
+    -1px -1px 0 #111,
+     1px -1px 0 #111,
+    -1px  1px 0 #111,
+     1px  1px 0 #111;
+}
+
+#modd-item-shop-modal .items-shop .col-sm-3 > .row.text-center > .col.no-selection {
+  color: #fff !important;
+  font-family: 'Brianne\'s Hand', cursive !important;
+  text-shadow:
+    -1px -1px 0 #111,
+     1px -1px 0 #111,
+    -1px  1px 0 #111,
+     1px  1px 0 #111;
+}
+
+#modd-item-shop-modal .items-shop .col-sm-3 > button,
+#modd-item-shop-modal .items-shop .col-sm-3 > button * {
+  font-family: 'Brianne\'s Hand', cursive !important;
+  text-shadow: none;
+}
+
+#ui-text-center-lg-id,
+.ui-text-center-lg {
+  font-family: 'House of Terror', sans-serif !important;
+}
